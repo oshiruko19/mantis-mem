@@ -1,0 +1,21 @@
+{
+  "description": "mantis-mem orientation for GitHub Copilot — inject the mem_* usage contract and this workspace's recent memory at session start and before compaction. Read-only: saving stays deliberate, never passive capture.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "type": "command",
+        "bash": "bash ./com.github.copilot/hooks/mantis-mem-hook.sh",
+        "powershell": "powershell -ExecutionPolicy Bypass -File .\\com.github.copilot\\hooks\\mantis-mem-hook.ps1",
+        "timeout": 10
+      }
+    ],
+    "PreCompact": [
+      {
+        "type": "command",
+        "bash": "bash ./com.github.copilot/hooks/mantis-mem-hook.sh",
+        "powershell": "powershell -ExecutionPolicy Bypass -File .\\com.github.copilot\\hooks\\mantis-mem-hook.ps1",
+        "timeout": 10
+      }
+    ]
+  }
+}

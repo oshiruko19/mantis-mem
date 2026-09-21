@@ -19,7 +19,8 @@ Thanks for contributing. mantis-mem aims for a strict **issue-first workflow** �
 | Label migration policy (`label-policy.mjs`), merge queue                                 | 🔜 Planned                                                             |
 | Transient-artifact validator                                                             | 🔜 Planned (policy documented below; `.gitignore` covers common cases) |
 | `setup.sh` agent-skill linking                                                           | 🔜 Planned                                                             |
-| Plugin / npm hygiene                                                                     | ➖ N/A (no `plugin/` package yet)                                      |
+| VS Code Agent Plugin (`plugin/vscode/`: MCP server + usage skill)                        | ✅ Active                                                              |
+| npm dependency hygiene                                                                   | ➖ N/A (no npm packages; `plugin/vscode` is config + shell only)       |
 
 ---
 

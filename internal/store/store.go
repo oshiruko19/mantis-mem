@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	_ "modernc.org/sqlite" // registers the cgo-free "sqlite" database/sql driver
 )
@@ -75,7 +76,32 @@ func (s *Store) migrate() error {
 	if _, err := s.db.Exec(schemaSQL); err != nil {
 		return fmt.Errorf("apply schema: %w", err)
 	}
+	if !s.hasColumn("observations", "commit_sha") {
+		if _, err := s.db.Exec("ALTER TABLE observations ADD COLUMN commit_sha TEXT NOT NULL DEFAULT '';"); err != nil {
+			return fmt.Errorf("add commit_sha column: %w", err)
+		}
+	}
 	return nil
+}
+
+func (s *Store) hasColumn(table, column string) bool {
+	rows, err := s.db.Query(fmt.Sprintf("PRAGMA table_info(%s);", table))
+	if err != nil {
+		return false
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var cid int
+		var name, ctype string
+		var notnull, pk int
+		var dfltValue any
+		if err := rows.Scan(&cid, &name, &ctype, &notnull, &dfltValue, &pk); err == nil {
+			if strings.EqualFold(name, column) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // Path returns the on-disk path of the database file.

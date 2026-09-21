@@ -29,6 +29,8 @@ func Run(args []string, version string, out io.Writer) error {
 		return cmdContext(rest, out)
 	case "timeline":
 		return cmdTimeline(rest, out)
+	case "sessions", "session-history":
+		return cmdSessions(rest, out)
 	case "get":
 		return cmdGet(rest, out)
 	case "project":
@@ -56,10 +58,11 @@ Usage:
   mantis-mem serve                 run the MCP stdio server (for agents)
   mantis-mem init                  create/open the database
   mantis-mem project               show the resolved current project
-  mantis-mem save   --kind K --title T --body B [--topic K] [--tags "a b"] [--files "p1,p2"]
+  mantis-mem save   --kind K --title T --body B [--topic K] [--tags "a b"] [--files "p1,p2"] [--commit SHA]
   mantis-mem search QUERY          full-text search the current project
   mantis-mem context [--limit N]   recent history for the current project
   mantis-mem timeline [--session S] [--since RFC3339] [--limit N]
+  mantis-mem sessions [--limit N]  list past session summaries / handoffs
   mantis-mem get ID                show a full observation
   mantis-mem suggest-topic --kind K --title T
   mantis-mem version
@@ -127,6 +130,7 @@ func cmdSave(args []string, out io.Writer) error {
 	tags := fs.String("tags", "", "space-separated tags")
 	files := fs.String("files", "", "comma-separated file paths")
 	session := fs.String("session", "", "session id")
+	commit := fs.String("commit", "", "git commit SHA (auto-detected if omitted)")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -145,9 +149,14 @@ func cmdSave(args []string, out io.Writer) error {
 	if err != nil {
 		return err
 	}
+	commitSHA := strings.TrimSpace(*commit)
+	if commitSHA == "" {
+		commitSHA = project.CurrentCommit(p.Path)
+	}
 	saved, updated, err := st.SaveObservation(&store.Observation{
 		ProjectID: p.ID,
 		SessionID: *session,
+		CommitSHA: commitSHA,
 		TopicKey:  strings.TrimSpace(*topic),
 		Kind:      *kind,
 		Title:     *title,
@@ -166,7 +175,37 @@ func cmdSave(args []string, out io.Writer) error {
 	if saved.TopicKey != "" {
 		fmt.Fprintf(out, " [%s]", saved.TopicKey)
 	}
+	if saved.CommitSHA != "" {
+		short := saved.CommitSHA
+		if len(short) > 8 {
+			short = short[:8]
+		}
+		fmt.Fprintf(out, " (commit %s)", short)
+	}
 	fmt.Fprintln(out)
+
+	if !updated {
+		hits, err := st.FindSimilar(p.ID, saved.Title, saved.ID, 3)
+		if err == nil && len(hits) > 0 {
+			fmt.Fprintf(out, "\nNotice: %d similar observation(s) found:\n", len(hits))
+			var topTopic string
+			for _, h := range hits {
+				topicStr := ""
+				if h.TopicKey != "" {
+					topicStr = " [" + h.TopicKey + "]"
+					if topTopic == "" {
+						topTopic = h.TopicKey
+					}
+				}
+				fmt.Fprintf(out, "  #%d  %-10s %s%s\n", h.ID, h.Kind, h.Title, topicStr)
+			}
+			if topTopic != "" {
+				fmt.Fprintf(out, "Nudge: consider reusing --topic %s to update in place next time.\n", topTopic)
+			} else {
+				fmt.Fprintln(out, "Nudge: consider using --topic to group evolving knowledge under a stable slug.")
+			}
+		}
+	}
 	return nil
 }
 
@@ -273,6 +312,45 @@ func cmdTimeline(args []string, out io.Writer) error {
 	return nil
 }
 
+func cmdSessions(args []string, out io.Writer) error {
+	fs := flag.NewFlagSet("sessions", flag.ContinueOnError)
+	db := fs.String("db", "", "database file path")
+	limit := fs.Int("limit", 10, "maximum session summaries")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	st, err := openStore(*db)
+	if err != nil {
+		return err
+	}
+	defer st.Close()
+	p, err := resolveProject(st)
+	if err != nil {
+		return err
+	}
+	summaries, err := st.SessionSummaryHistory(p.ID, *limit)
+	if err != nil {
+		return err
+	}
+	if len(summaries) == 0 {
+		fmt.Fprintln(out, "no session summaries found")
+		return nil
+	}
+	for _, s := range summaries {
+		fmt.Fprintf(out, "[%s] (updated: %s)\n", s.SessionID, s.UpdatedAt)
+		printField(out, "  goal", s.Goal)
+		printField(out, "  instructions", s.Instructions)
+		printField(out, "  discoveries", s.Discoveries)
+		printField(out, "  accomplished", s.Accomplished)
+		printField(out, "  next", s.NextSteps)
+		if len(s.Files) > 0 {
+			fmt.Fprintf(out, "  files: %s\n", strings.Join(s.Files, ", "))
+		}
+		fmt.Fprintln(out)
+	}
+	return nil
+}
+
 func cmdGet(args []string, out io.Writer) error {
 	fs := flag.NewFlagSet("get", flag.ContinueOnError)
 	db := fs.String("db", "", "database file path")
@@ -304,6 +382,23 @@ func cmdGet(args []string, out io.Writer) error {
 		fmt.Fprintf(out, "   topic: %s", o.TopicKey)
 	}
 	fmt.Fprintf(out, "\ncreated: %s   updated: %s\n", o.CreatedAt, o.UpdatedAt)
+	if o.CommitSHA != "" {
+		p, err := resolveProject(st)
+		if err == nil && p != nil {
+			current := project.CurrentCommit(p.Path)
+			if current != "" && current != o.CommitSHA {
+				shortCurr := current
+				if len(shortCurr) > 8 {
+					shortCurr = shortCurr[:8]
+				}
+				fmt.Fprintf(out, "commit: %s (current HEAD: %s, potentially stale)\n", o.CommitSHA, shortCurr)
+			} else {
+				fmt.Fprintf(out, "commit: %s\n", o.CommitSHA)
+			}
+		} else {
+			fmt.Fprintf(out, "commit: %s\n", o.CommitSHA)
+		}
+	}
 	if len(o.Files) > 0 {
 		fmt.Fprintf(out, "files: %s\n", strings.Join(o.Files, ", "))
 	}

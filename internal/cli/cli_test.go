@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/oshiruko19/mantis-mem/internal/store"
 )
 
 // newEnv points the CLI at a fresh temp DB and a deterministic (env-resolved)
@@ -46,11 +48,11 @@ func TestUnknownCommand(t *testing.T) {
 
 func TestSaveThenSearch(t *testing.T) {
 	newEnv(t)
-	out, err := run(t, "save", "--kind", "bug", "--title", "Login crash", "--body", "fixed the crash")
+	out, err := run(t, "save", "--kind", "bug", "--title", "Login crash", "--body", "fixed the crash", "--commit", "deadbeef12345678")
 	if err != nil {
 		t.Fatalf("save: %v", err)
 	}
-	if !strings.Contains(out, "saved observation #1") {
+	if !strings.Contains(out, "saved observation #1") || !strings.Contains(out, "commit deadbeef") {
 		t.Fatalf("save output: %q", out)
 	}
 
@@ -60,6 +62,25 @@ func TestSaveThenSearch(t *testing.T) {
 	}
 	if !strings.Contains(out, "Login crash") {
 		t.Fatalf("search did not find the saved observation: %q", out)
+	}
+}
+
+func TestSaveDuplicateNudge(t *testing.T) {
+	newEnv(t)
+	_, err := run(t, "save", "--kind", "pattern", "--title", "WebSocket reconnection protocol", "--body", "exponential backoff", "--topic", "net/ws-reconnect")
+	if err != nil {
+		t.Fatalf("save 1: %v", err)
+	}
+
+	out, err := run(t, "save", "--kind", "pattern", "--title", "WebSocket reconnection handling", "--body", "retry with jitter")
+	if err != nil {
+		t.Fatalf("save 2: %v", err)
+	}
+	if !strings.Contains(out, "similar observation(s) found") {
+		t.Fatalf("expected near-duplicate notice in output: %q", out)
+	}
+	if !strings.Contains(out, "net/ws-reconnect") {
+		t.Fatalf("expected suggestion to reuse topic net/ws-reconnect: %q", out)
 	}
 }
 
@@ -170,6 +191,40 @@ func TestSuggestTopic(t *testing.T) {
 func TestSuggestTopicRequiresTitle(t *testing.T) {
 	if _, err := run(t, "suggest-topic", "--kind", "bug"); err == nil {
 		t.Fatal("expected error when --title is missing")
+	}
+}
+
+func TestSessions(t *testing.T) {
+	newEnv(t)
+	out, err := run(t, "sessions")
+	if err != nil {
+		t.Fatalf("sessions: %v", err)
+	}
+	if !strings.Contains(out, "no session summaries found") {
+		t.Fatalf("expected no summaries, got: %q", out)
+	}
+
+	st, err := openStore("")
+	if err != nil {
+		t.Fatalf("openStore: %v", err)
+	}
+	defer st.Close()
+	p, err := resolveProject(st)
+	if err != nil {
+		t.Fatalf("resolveProject: %v", err)
+	}
+	if _, err := st.UpsertSessionSummary(&store.SessionSummary{
+		ProjectID: p.ID, SessionID: "sess-abc", Goal: "refactor memory",
+	}); err != nil {
+		t.Fatalf("UpsertSessionSummary: %v", err)
+	}
+
+	out, err = run(t, "sessions")
+	if err != nil {
+		t.Fatalf("sessions after insert: %v", err)
+	}
+	if !strings.Contains(out, "sess-abc") || !strings.Contains(out, "refactor memory") {
+		t.Fatalf("sessions output missing summary: %q", out)
 	}
 }
 

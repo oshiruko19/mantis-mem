@@ -1,0 +1,11 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "mantis-mem",
+  "description": "Curated project memory for AI agents (SQLite + FTS5), exposed over MCP. Bundles the mantis-mem MCP server and a usage skill.",
+  "author": {
+    "name": "Adel ATRARI",
+    "email": "adel.atrari@gmail.com"
+  },
+  "license": "MIT",
+  "version": "0.1.0"
+}

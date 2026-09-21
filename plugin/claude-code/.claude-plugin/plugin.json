@@ -1,0 +1,12 @@
+{
+  "name": "mantis-mem",
+  "description": "Curated project memory for AI agents (SQLite + FTS5), exposed over MCP. Bundles the mantis-mem MCP server and a usage skill.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Adel ATRARI",
+    "email": "adel.atrari@gmail.com"
+  },
+  "homepage": "https://github.com/oshiruko19/mantis-mem",
+  "repository": "https://github.com/oshiruko19/mantis-mem",
+  "license": "MIT"
+}

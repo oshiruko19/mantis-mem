@@ -50,6 +50,11 @@ func New(st *store.Store, version string) *mcp.Server {
 	}, h.MemSessionSummary)
 
 	mcp.AddTool(s, &mcp.Tool{
+		Name:        "mem_session_history",
+		Description: "List past session summaries / handoffs in reverse chronological order for the current project.",
+	}, h.MemSessionHistory)
+
+	mcp.AddTool(s, &mcp.Tool{
 		Name:        "mem_suggest_topic_key",
 		Description: "Suggest a stable topic_key slug (namespace/kebab-title) for an evolving topic when the key is unclear.",
 	}, h.MemSuggestTopicKey)

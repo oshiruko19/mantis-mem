@@ -54,16 +54,17 @@ Memory is scoped per project, resolved from the working directory:
 
 ## MCP tools
 
-| Tool                    | Purpose                                                                             |
-| ----------------------- | ----------------------------------------------------------------------------------- |
-| `mem_current_project`   | Confirm the resolved project and DB path. Call first to orient.                     |
-| `mem_context`           | Recover recent history: latest session summary + recent observation previews.       |
-| `mem_search`            | Full-text search the current project. Returns ranked **previews**.                  |
-| `mem_timeline`          | Observations in chronological order, optionally scoped to a session/time.           |
-| `mem_get_observation`   | Fetch the full record for one observation by id.                                    |
-| `mem_save`              | Save durable knowledge; reuse a `topic_key` to update an evolving topic in place.   |
-| `mem_session_summary`   | Save/update a session handoff (goal, instructions, discoveries, next steps, files). |
-| `mem_suggest_topic_key` | Suggest a stable `namespace/kebab-title` slug.                                      |
+| Tool                    | Purpose                                                                                                       |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `mem_current_project`   | Confirm the resolved project and DB path. Call first to orient.                                               |
+| `mem_context`           | Recover recent history: latest session summary + recent observation previews.                                 |
+| `mem_search`            | Full-text search the current project. Returns ranked **previews**.                                            |
+| `mem_timeline`          | Observations in chronological order, optionally scoped to a session/time.                                     |
+| `mem_get_observation`   | Fetch the full record for one observation by id (reports commit SHA and staleness).                           |
+| `mem_save`              | Save durable knowledge (with auto commit capture and duplicate nudges); reuse `topic_key` to update in place. |
+| `mem_session_summary`   | Save/update a session handoff (goal, instructions, discoveries, next steps, files).                           |
+| `mem_session_history`   | List past session summaries / handoffs in reverse chronological order.                                        |
+| `mem_suggest_topic_key` | Suggest a stable `namespace/kebab-title` slug.                                                                |
 
 Observation kinds: `decision`, `bug`, `discovery`, `config`, `pattern`, `constraint`, `feature`, `note`.
 
@@ -80,10 +81,11 @@ Learned: Reuse the request id as the idempotency key.
 
 ```bash
 mantis-mem project                       # show resolved project
-mantis-mem save --kind bug --title "..." --body "..." [--topic bug/x] [--tags "a b"] [--files "p1,p2"]
+mantis-mem save --kind bug --title "..." --body "..." [--topic bug/x] [--tags "a b"] [--files "p1,p2"] [--commit SHA]
 mantis-mem search "retry idempotency"    # full-text search
 mantis-mem context [--limit N]           # recent history
 mantis-mem timeline [--session S] [--since 2026-09-01T00:00:00Z]
+mantis-mem sessions [--limit N]          # past session summaries
 mantis-mem get 42                        # full observation
 mantis-mem suggest-topic --kind pattern --title "Auth model"
 mantis-mem --db /tmp/x.db save ...       # leading global --db works too
@@ -92,6 +94,12 @@ mantis-mem --db /tmp/x.db save ...       # leading global --db works too
 ## Register with an agent
 
 The agent launches `mantis-mem serve` and speaks MCP over stdio.
+
+> **Using the Claude Code or VS Code plugin?** You don't need a binary on disk or any of the
+> steps below — the plugin downloads the right binary from GitHub Releases automatically on
+> first use. See **[docs/install.md](docs/install.md)**. The commands below are the manual,
+> plugin-free path (they need a `mantis-mem` binary — build one via `## Build` above, or grab a
+> [release](https://github.com/oshiruko19/mantis-mem/releases)).
 
 ### Claude Code
 
@@ -120,16 +128,27 @@ The default DB is `~/.mantis/mantis_mem.db`; override with an absolute path via 
 
 ### VS Code (Copilot, agent mode)
 
-VS Code uses `.vscode/mcp.json` with a `servers` key and `"type": "stdio"`. See
-**[plugin/vscode/](plugin/vscode/README.md)** for the template and step-by-step setup + test:
+mantis-mem ships as a VS Code **Agent Plugin** that bundles the MCP server **and** a
+usage skill — see **[plugin/vscode/](plugin/vscode/README.md)** and
+**[docs/install.md](docs/install.md)** for setup, verification, and caveats. In short: enable
+`chat.plugins.enabled`, register `plugin/vscode/` as a local plugin (`chat.pluginLocations` in
+settings, mapping the folder path to `true`), and enable it. The binary is downloaded from
+GitHub Releases automatically on first use — no `make`, no build.
+
+For per-project memory scoping (a plugin runs its server from the plugin root, not the
+workspace), use a workspace `.vscode/mcp.json` that launches through the plugin's Node launcher
+(so you keep the automatic download *and* a workspace-scoped `cwd`):
 
 ```json
 {
   "servers": {
     "mantis-mem": {
       "type": "stdio",
-      "command": "mantis-mem",
-      "args": ["serve"],
+      "command": "node",
+      "args": [
+        "/absolute/path/to/mantis-mem/plugin/vscode/bin/mantis-mem-launcher.js",
+        "serve"
+      ],
       "cwd": "${workspaceFolder}"
     }
   }

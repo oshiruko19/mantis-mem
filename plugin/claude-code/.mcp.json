@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "mantis-mem": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/bin/mantis-mem-launcher.js", "serve"]
+    }
+  }
+}

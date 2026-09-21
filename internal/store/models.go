@@ -28,6 +28,7 @@ type Observation struct {
 	ID        int64    `json:"id"`
 	ProjectID int64    `json:"project_id"`
 	SessionID string   `json:"session_id,omitempty"`
+	CommitSHA string   `json:"commit_sha,omitempty"`
 	TopicKey  string   `json:"topic_key,omitempty"`
 	Kind      string   `json:"kind"`
 	Title     string   `json:"title"`

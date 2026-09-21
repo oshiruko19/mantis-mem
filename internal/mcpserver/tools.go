@@ -39,13 +39,15 @@ type observationPreview struct {
 	Title     string `json:"title"`
 	TopicKey  string `json:"topic_key,omitempty"`
 	SessionID string `json:"session_id,omitempty"`
+	CommitSHA string `json:"commit_sha,omitempty"`
 	CreatedAt string `json:"created_at"`
 }
 
 func toPreview(o store.Observation) observationPreview {
 	return observationPreview{
 		ID: o.ID, Kind: o.Kind, Title: o.Title,
-		TopicKey: o.TopicKey, SessionID: o.SessionID, CreatedAt: o.CreatedAt,
+		TopicKey: o.TopicKey, SessionID: o.SessionID,
+		CommitSHA: o.CommitSHA, CreatedAt: o.CreatedAt,
 	}
 }
 
@@ -168,8 +170,9 @@ type getInput struct {
 }
 
 type getOutput struct {
-	Observation *store.Observation `json:"observation"`
-	Found       bool               `json:"found"`
+	Observation   *store.Observation `json:"observation"`
+	Found         bool               `json:"found"`
+	CurrentCommit string             `json:"current_commit,omitempty"`
 }
 
 func (h *Handler) MemGetObservation(_ context.Context, _ *mcp.CallToolRequest, in getInput) (*mcp.CallToolResult, getOutput, error) {
@@ -177,7 +180,14 @@ func (h *Handler) MemGetObservation(_ context.Context, _ *mcp.CallToolRequest, i
 	if err != nil {
 		return nil, getOutput{}, err
 	}
-	return nil, getOutput{Observation: o, Found: o != nil}, nil
+	var currentCommit string
+	if o != nil {
+		p, _, err := h.currentProject()
+		if err == nil && p != nil {
+			currentCommit = project.CurrentCommit(p.Path)
+		}
+	}
+	return nil, getOutput{Observation: o, Found: o != nil, CurrentCommit: currentCommit}, nil
 }
 
 // --- mem_save ------------------------------------------------------------------
@@ -190,12 +200,23 @@ type saveInput struct {
 	Files     []string `json:"files,omitempty" jsonschema:"relevant file paths"`
 	Tags      string   `json:"tags,omitempty" jsonschema:"space-separated tags for retrieval"`
 	SessionID string   `json:"session_id,omitempty" jsonschema:"the current session identifier"`
+	CommitSHA string   `json:"commit_sha,omitempty" jsonschema:"git commit SHA associated with this observation; auto-detected if omitted"`
+}
+
+type SimilarObservation struct {
+	ID       int64  `json:"id"`
+	Title    string `json:"title"`
+	TopicKey string `json:"topic_key,omitempty"`
+	Kind     string `json:"kind"`
 }
 
 type saveOutput struct {
-	ID       int64  `json:"id"`
-	TopicKey string `json:"topic_key,omitempty"`
-	Updated  bool   `json:"updated"` // true when an existing topic was updated in place
+	ID        int64                `json:"id"`
+	TopicKey  string               `json:"topic_key,omitempty"`
+	CommitSHA string               `json:"commit_sha,omitempty"`
+	Updated   bool                 `json:"updated"` // true when an existing topic was updated in place
+	Similar   []SimilarObservation `json:"similar,omitempty"`
+	Nudge     string               `json:"nudge,omitempty"`
 }
 
 func (h *Handler) MemSave(_ context.Context, _ *mcp.CallToolRequest, in saveInput) (*mcp.CallToolResult, saveOutput, error) {
@@ -209,9 +230,14 @@ func (h *Handler) MemSave(_ context.Context, _ *mcp.CallToolRequest, in saveInpu
 	if err != nil {
 		return nil, saveOutput{}, err
 	}
+	commitSHA := strings.TrimSpace(in.CommitSHA)
+	if commitSHA == "" {
+		commitSHA = project.CurrentCommit(p.Path)
+	}
 	saved, updated, err := h.Store.SaveObservation(&store.Observation{
 		ProjectID: p.ID,
 		SessionID: in.SessionID,
+		CommitSHA: commitSHA,
 		TopicKey:  strings.TrimSpace(in.TopicKey),
 		Kind:      in.Kind,
 		Title:     in.Title,
@@ -222,7 +248,32 @@ func (h *Handler) MemSave(_ context.Context, _ *mcp.CallToolRequest, in saveInpu
 	if err != nil {
 		return nil, saveOutput{}, err
 	}
-	return nil, saveOutput{ID: saved.ID, TopicKey: saved.TopicKey, Updated: updated}, nil
+	out := saveOutput{ID: saved.ID, TopicKey: saved.TopicKey, CommitSHA: saved.CommitSHA, Updated: updated}
+	if !updated {
+		hits, err := h.Store.FindSimilar(p.ID, saved.Title, saved.ID, 3)
+		if err == nil && len(hits) > 0 {
+			sims := make([]SimilarObservation, 0, len(hits))
+			var topTopic string
+			for _, hit := range hits {
+				sims = append(sims, SimilarObservation{
+					ID:       hit.ID,
+					Title:    hit.Title,
+					TopicKey: hit.TopicKey,
+					Kind:     hit.Kind,
+				})
+				if topTopic == "" && hit.TopicKey != "" {
+					topTopic = hit.TopicKey
+				}
+			}
+			out.Similar = sims
+			if topTopic != "" {
+				out.Nudge = fmt.Sprintf("Found %d similar observation(s) (e.g. topic_key %q). If this is an evolution of that topic, consider reusing the topic_key to update it in place instead of creating duplicate notes.", len(sims), topTopic)
+			} else {
+				out.Nudge = fmt.Sprintf("Found %d similar observation(s) (e.g. #%d %q). Consider using a topic_key to group evolving knowledge under a stable slug.", len(sims), sims[0].ID, sims[0].Title)
+			}
+		}
+	}
+	return nil, out, nil
 }
 
 // --- mem_session_summary -------------------------------------------------------
@@ -264,6 +315,28 @@ func (h *Handler) MemSessionSummary(_ context.Context, _ *mcp.CallToolRequest, i
 		return nil, sessionSummaryOutput{}, err
 	}
 	return nil, sessionSummaryOutput{ID: ss.ID, ProjectID: ss.ProjectID}, nil
+}
+
+// --- mem_session_history -------------------------------------------------------
+
+type sessionHistoryInput struct {
+	Limit int `json:"limit,omitempty" jsonschema:"maximum session summaries to return (default 10)"`
+}
+
+type sessionHistoryOutput struct {
+	Summaries []store.SessionSummary `json:"summaries"`
+}
+
+func (h *Handler) MemSessionHistory(_ context.Context, _ *mcp.CallToolRequest, in sessionHistoryInput) (*mcp.CallToolResult, sessionHistoryOutput, error) {
+	p, _, err := h.currentProject()
+	if err != nil {
+		return nil, sessionHistoryOutput{}, err
+	}
+	summaries, err := h.Store.SessionSummaryHistory(p.ID, in.Limit)
+	if err != nil {
+		return nil, sessionHistoryOutput{}, err
+	}
+	return nil, sessionHistoryOutput{Summaries: summaries}, nil
 }
 
 // --- mem_suggest_topic_key -----------------------------------------------------

@@ -2,9 +2,12 @@
 package project
 
 import (
+	"context"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 // Resolved describes the current project and which rule identified it.
@@ -58,4 +61,37 @@ func findGitRoot(dir string) string {
 		}
 		dir = parent
 	}
+}
+
+// CurrentCommit discovers the current Git commit SHA for dir (or its ancestors).
+// It runs "git rev-parse HEAD" in dir. If git is unavailable, dir is not in a git
+// repo, or there are no commits yet, it returns "" without failing.
+func CurrentCommit(dir string) string {
+	if strings.HasPrefix(dir, "env:") || dir == "" {
+		if wd, err := os.Getwd(); err == nil {
+			dir = wd
+		}
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "git", "rev-parse", "HEAD")
+	cmd.Dir = dir
+	out, err := cmd.Output()
+	if err != nil {
+		return ""
+	}
+	sha := strings.TrimSpace(string(out))
+	if len(sha) >= 7 && len(sha) <= 64 && isHex(sha) {
+		return sha
+	}
+	return ""
+}
+
+func isHex(s string) bool {
+	for _, r := range s {
+		if (r < '0' || r > '9') && (r < 'a' || r > 'f') && (r < 'A' || r > 'F') {
+			return false
+		}
+	}
+	return true
 }

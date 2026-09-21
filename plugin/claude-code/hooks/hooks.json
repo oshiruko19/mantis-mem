@@ -1,0 +1,29 @@
+{
+  "description": "mantis-mem orientation — deterministically inject the mem_* usage contract and this project's recent memory at session start and after compaction. Read-only: saving stays deliberate, never passive capture.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear|fork",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/session-start.sh\"",
+            "timeout": 10,
+            "statusMessage": "Loading mantis-mem project memory..."
+          }
+        ]
+      },
+      {
+        "matcher": "compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/session-start.sh\"",
+            "timeout": 10,
+            "statusMessage": "Recovering mantis-mem context after compaction..."
+          }
+        ]
+      }
+    ]
+  }
+}

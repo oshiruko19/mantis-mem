@@ -6,7 +6,7 @@ release:
   prerelease: auto
 
 builds:
-  - main: ./cmd/mantis-mem
+  - main: .
     binary: mantis-mem
     env:
       - CGO_ENABLED=0
@@ -24,12 +24,12 @@ builds:
         - cmd: sh -c 'if [ "{{ .Os }}" = "darwin" ] && command -v codesign >/dev/null 2>&1; then codesign --force --sign - "{{ .Path }}"; fi'
 
 archives:
+  # The plugin launcher (plugin/*/bin/download.js) constructs asset names from this
+  # template, so keep it in sync with that file. Binary sits at the archive root
+  # (wrap_in_directory defaults to false).
   - formats:
       - tar.gz
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
-    files:
-      - tools/cloud-sync-projects.sh
-      - tools/cloud-sync-projects.ps1
     format_overrides:
       - goos: windows
         formats:
@@ -47,11 +47,15 @@ changelog:
       - "^ci:"
 
 brews:
+  # Homebrew formula. Disabled for now (skip_upload) so a release succeeds without a
+  # tap. To publish it: create the oshiruko19/homebrew-tap repo, add the
+  # HOMEBREW_TAP_TOKEN repo secret (the release workflow already passes it), and set
+  # skip_upload back to `auto` (skips only prereleases/snapshots) or `false`.
   - repository:
       owner: oshiruko19
       name: homebrew-tap
       token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
-    skip_upload: auto
+    skip_upload: true
     directory: Formula
     name: mantis-mem
     homepage: "https://github.com/oshiruko19/mantis-mem"

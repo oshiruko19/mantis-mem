@@ -3,6 +3,7 @@ package store
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 )
 
 // UpsertSessionSummary stores the handoff for a session, replacing any prior
@@ -38,6 +39,34 @@ LIMIT 1;`
 		return nil, nil
 	}
 	return ss, err
+}
+
+// SessionSummaryHistory returns past session summaries for a project in reverse
+// chronological order (most recent first).
+func (s *Store) SessionSummaryHistory(projectID int64, limit int) ([]SessionSummary, error) {
+	if limit <= 0 {
+		limit = 10
+	}
+	const q = `
+SELECT id, project_id, session_id, goal, instructions, discoveries, accomplished, next_steps, files, created_at, updated_at
+FROM session_summaries WHERE project_id = ?
+ORDER BY updated_at DESC, id DESC
+LIMIT ?;`
+	rows, err := s.db.Query(q, projectID, limit)
+	if err != nil {
+		return nil, fmt.Errorf("session summary history: %w", err)
+	}
+	defer rows.Close()
+
+	out := []SessionSummary{}
+	for rows.Next() {
+		ss, err := scanSessionSummary(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, *ss)
+	}
+	return out, rows.Err()
 }
 
 func scanSessionSummary(sc scanner) (*SessionSummary, error) {

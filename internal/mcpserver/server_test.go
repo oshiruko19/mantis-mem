@@ -82,7 +82,7 @@ func TestListToolsExposesAllMemTools(t *testing.T) {
 	}
 	want := []string{
 		"mem_current_project", "mem_context", "mem_search", "mem_timeline",
-		"mem_get_observation", "mem_save", "mem_session_summary", "mem_suggest_topic_key",
+		"mem_get_observation", "mem_save", "mem_session_summary", "mem_session_history", "mem_suggest_topic_key",
 	}
 	for _, name := range want {
 		if !got[name] {
@@ -134,6 +134,69 @@ func TestSaveSearchGetRoundTripOverMCP(t *testing.T) {
 	}
 }
 
+func TestSaveWithCommitSHAOverMCP(t *testing.T) {
+	cs, ctx := connectInProcess(t)
+	var saved struct {
+		ID        int64  `json:"id"`
+		CommitSHA string `json:"commit_sha"`
+	}
+	callTool(t, cs, ctx, "mem_save", map[string]any{
+		"kind":       "decision",
+		"title":      "Use sqlite WAL",
+		"body":       "WAL mode for concurrent access.",
+		"commit_sha": "abc1234567890def",
+	}, &saved)
+	if saved.CommitSHA != "abc1234567890def" {
+		t.Fatalf("expected commit sha returned on save, got %q", saved.CommitSHA)
+	}
+
+	var got struct {
+		Observation   *store.Observation `json:"observation"`
+		Found         bool               `json:"found"`
+		CurrentCommit string             `json:"current_commit"`
+	}
+	callTool(t, cs, ctx, "mem_get_observation", map[string]any{"id": saved.ID}, &got)
+	if !got.Found || got.Observation == nil {
+		t.Fatalf("expected to find observation %d", saved.ID)
+	}
+	if got.Observation.CommitSHA != "abc1234567890def" {
+		t.Fatalf("expected commit sha %q, got %q", "abc1234567890def", got.Observation.CommitSHA)
+	}
+}
+
+func TestSaveDuplicateNudgeOverMCP(t *testing.T) {
+	cs, ctx := connectInProcess(t)
+	var first saveOutput
+	callTool(t, cs, ctx, "mem_save", map[string]any{
+		"kind":      "pattern",
+		"title":     "OAuth2 authentication flow and token refresh",
+		"body":      "Use refresh tokens before access tokens expire.",
+		"topic_key": "architecture/oauth2-flow",
+	}, &first)
+	if first.ID == 0 {
+		t.Fatalf("first save failed")
+	}
+
+	var second saveOutput
+	callTool(t, cs, ctx, "mem_save", map[string]any{
+		"kind":  "pattern",
+		"title": "OAuth2 authentication token handling",
+		"body":  "Store tokens securely.",
+	}, &second)
+	if second.ID == 0 {
+		t.Fatalf("second save failed")
+	}
+	if len(second.Similar) == 0 {
+		t.Fatalf("expected near-duplicate detection to return similar observations")
+	}
+	if second.Similar[0].TopicKey != "architecture/oauth2-flow" {
+		t.Fatalf("expected top similar topic_key %q, got %q", "architecture/oauth2-flow", second.Similar[0].TopicKey)
+	}
+	if second.Nudge == "" {
+		t.Fatalf("expected a nudge message nudging toward topic_key reuse")
+	}
+}
+
 func TestSaveRejectsInvalidKind(t *testing.T) {
 	cs, ctx := connectInProcess(t)
 	res, err := cs.CallTool(ctx, &mcp.CallToolParams{
@@ -161,5 +224,32 @@ func TestCurrentProjectReportsSource(t *testing.T) {
 	}
 	if out.DBPath == "" {
 		t.Fatalf("expected a db path in the response")
+	}
+}
+
+func TestSessionSummaryAndHistoryOverMCP(t *testing.T) {
+	cs, ctx := connectInProcess(t)
+	var out struct {
+		ID        int64 `json:"id"`
+		ProjectID int64 `json:"project_id"`
+	}
+	callTool(t, cs, ctx, "mem_session_summary", map[string]any{
+		"session_id": "sess-1",
+		"goal":       "first goal",
+	}, &out)
+	callTool(t, cs, ctx, "mem_session_summary", map[string]any{
+		"session_id": "sess-2",
+		"goal":       "second goal",
+	}, &out)
+
+	var hist struct {
+		Summaries []store.SessionSummary `json:"summaries"`
+	}
+	callTool(t, cs, ctx, "mem_session_history", map[string]any{"limit": 5}, &hist)
+	if len(hist.Summaries) != 2 {
+		t.Fatalf("expected 2 session summaries, got %d", len(hist.Summaries))
+	}
+	if hist.Summaries[0].SessionID != "sess-2" || hist.Summaries[1].SessionID != "sess-1" {
+		t.Fatalf("unexpected summary order: %+v", hist.Summaries)
 	}
 }

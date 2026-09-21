@@ -123,6 +123,14 @@ func TestFindGitRootNone(t *testing.T) {
 	}
 }
 
+func TestCurrentCommitNonGit(t *testing.T) {
+	dir := t.TempDir()
+	commit := CurrentCommit(dir)
+	if commit != "" {
+		t.Fatalf("expected empty commit for non-git dir, got %q", commit)
+	}
+}
+
 func TestCanonicalIsAbsolute(t *testing.T) {
 	if got := canonical("."); !filepath.IsAbs(got) {
 		t.Fatalf("canonical(.) should be absolute, got %q", got)

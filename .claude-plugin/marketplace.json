@@ -1,0 +1,26 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "mantis-mem",
+  "description": "Curated project memory for AI coding agents — single Go binary, SQLite + FTS5, exposed over MCP.",
+  "owner": {
+    "name": "Adel ATRARI",
+    "email": "adel.atrari@gmail.com"
+  },
+  "plugins": [
+    {
+      "name": "mantis-mem",
+      "description": "Curated project memory over MCP: bundles the mantis-mem server (mem_* tools) and a usage skill that tells the agent how/when to use them.",
+      "version": "0.1.0",
+      "author": {
+        "name": "Adel ATRARI",
+        "email": "adel.atrari@gmail.com"
+      },
+      "source": "./plugin/claude-code",
+      "category": "productivity",
+      "homepage": "https://github.com/oshiruko19/mantis-mem",
+      "repository": "https://github.com/oshiruko19/mantis-mem",
+      "license": "MIT",
+      "keywords": ["memory", "mcp", "sqlite", "fts5", "context"]
+    }
+  ]
+}

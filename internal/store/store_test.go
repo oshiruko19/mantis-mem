@@ -45,7 +45,8 @@ func TestSaveGetRoundTrip(t *testing.T) {
 	p := mustProject(t, st)
 	saved, updated, err := st.SaveObservation(&Observation{
 		ProjectID: p.ID, Kind: "bug", Title: "leak", Body: "fixed the leak",
-		Files: []string{"a.go", "b.go"}, Tags: "mem",
+		CommitSHA: "0123456789abcdef",
+		Files:     []string{"a.go", "b.go"}, Tags: "mem",
 	})
 	if err != nil {
 		t.Fatalf("SaveObservation: %v", err)
@@ -53,12 +54,18 @@ func TestSaveGetRoundTrip(t *testing.T) {
 	if updated {
 		t.Fatalf("first save should not be an update")
 	}
+	if saved.CommitSHA != "0123456789abcdef" {
+		t.Fatalf("expected commit sha on saved, got %q", saved.CommitSHA)
+	}
 	got, err := st.GetObservation(saved.ID)
 	if err != nil || got == nil {
 		t.Fatalf("GetObservation: %v (got=%v)", err, got)
 	}
 	if got.Title != "leak" || got.Body != "fixed the leak" {
 		t.Fatalf("unexpected observation: %+v", got)
+	}
+	if got.CommitSHA != "0123456789abcdef" {
+		t.Fatalf("expected commit sha in got, got %q", got.CommitSHA)
 	}
 	if len(got.Files) != 2 || got.Files[0] != "a.go" {
 		t.Fatalf("files did not round-trip: %+v", got.Files)
@@ -157,6 +164,55 @@ func TestSearchMalformedQueryIsSafe(t *testing.T) {
 	}
 }
 
+func TestFindSimilar(t *testing.T) {
+	st := newTestStore(t)
+	p := mustProject(t, st)
+	saved, _, err := st.SaveObservation(&Observation{
+		ProjectID: p.ID,
+		TopicKey:  "bug/retry-logic",
+		Kind:      "bug",
+		Title:     "Database retry logic on connection reset",
+		Body:      "Retry database operations on transient errors",
+	})
+	if err != nil {
+		t.Fatalf("SaveObservation: %v", err)
+	}
+
+	// Another observation to ensure only relevant matches surface
+	_, _, _ = st.SaveObservation(&Observation{
+		ProjectID: p.ID,
+		Kind:      "note",
+		Title:     "CSS color palette",
+		Body:      "Blue and gray colors for buttons",
+	})
+
+	// Search for near duplicate with slightly different title
+	similar, err := st.FindSimilar(p.ID, "Database retry connection handling", 0, 5)
+	if err != nil {
+		t.Fatalf("FindSimilar: %v", err)
+	}
+	if len(similar) == 0 {
+		t.Fatalf("expected similar match for database retry, got 0")
+	}
+	if similar[0].ID != saved.ID {
+		t.Fatalf("expected similar[0].ID == %d, got %d", saved.ID, similar[0].ID)
+	}
+	if similar[0].TopicKey != "bug/retry-logic" {
+		t.Fatalf("expected topic key %q, got %q", "bug/retry-logic", similar[0].TopicKey)
+	}
+
+	// Exclude self
+	similarSelfExcluded, err := st.FindSimilar(p.ID, "Database retry logic on connection reset", saved.ID, 5)
+	if err != nil {
+		t.Fatalf("FindSimilar with excludeID: %v", err)
+	}
+	for _, s := range similarSelfExcluded {
+		if s.ID == saved.ID {
+			t.Fatalf("saved.ID %d should have been excluded", saved.ID)
+		}
+	}
+}
+
 func TestSessionSummaryUpsertAndLatest(t *testing.T) {
 	st := newTestStore(t)
 	p := mustProject(t, st)
@@ -172,5 +228,19 @@ func TestSessionSummaryUpsertAndLatest(t *testing.T) {
 	}
 	if latest.Goal != "new goal" || latest.NextSteps != "ship it" {
 		t.Fatalf("summary not upserted in place: %+v", latest)
+	}
+
+	if _, err := st.UpsertSessionSummary(&SessionSummary{ProjectID: p.ID, SessionID: "s2", Goal: "second session"}); err != nil {
+		t.Fatalf("upsert s2: %v", err)
+	}
+	history, err := st.SessionSummaryHistory(p.ID, 10)
+	if err != nil {
+		t.Fatalf("SessionSummaryHistory: %v", err)
+	}
+	if len(history) != 2 {
+		t.Fatalf("expected 2 session summaries, got %d", len(history))
+	}
+	if history[0].SessionID != "s2" || history[1].SessionID != "s1" {
+		t.Fatalf("expected order s2 then s1, got %s then %s", history[0].SessionID, history[1].SessionID)
 	}
 }

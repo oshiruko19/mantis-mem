@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS observations (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     project_id  INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     session_id  TEXT NOT NULL DEFAULT '',
+    commit_sha  TEXT NOT NULL DEFAULT '',              -- git commit SHA at time of save, if available
     topic_key   TEXT,                                  -- NULL for one-off notes; stable slug for evolving topics
     kind        TEXT NOT NULL,                         -- decision|bug|discovery|config|pattern|constraint|feature|note
     title       TEXT NOT NULL,

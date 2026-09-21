@@ -1,10 +1,10 @@
 {
-  "servers": {
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
+  "mcpServers": {
     "mantis-mem": {
       "type": "stdio",
-      "command": "mantis-mem",
-      "args": ["serve"],
-      "cwd": "${workspaceFolder}"
+      "command": "node",
+      "args": ["./bin/mantis-mem-launcher.js", "serve"]
     }
   }
 }
