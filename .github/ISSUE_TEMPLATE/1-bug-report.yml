@@ -1,0 +1,84 @@
+name: 🐛 Bug Report
+description: Report a defect in the mantis-mem CLI or MCP server
+labels: ["type:bug", "status:needs-review"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. Fill in every required field — a bug that can't be reproduced will be closed.
+        For general questions, use [Discussions](https://github.com/oshiruko19/mantis-mem/discussions) instead.
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Pre-flight
+      options:
+        - label: I searched existing issues and this is not a duplicate.
+          required: true
+        - label: I reproduced this on the latest `main` (or noted the version below).
+          required: false
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened?
+      description: A clear description of the bug and its impact.
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: Exact commands or MCP tool calls. Prefer a minimal example against a throwaway DB (`--db /tmp/x.db`).
+      render: shell
+      placeholder: |
+        mantis-mem --db /tmp/x.db save --kind bug --title "..." --body "..."
+        mantis-mem --db /tmp/x.db search "..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Include relevant stderr output. Never paste secrets or private data.
+      render: shell
+    validations:
+      required: true
+
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Which surface?
+      options:
+        - CLI
+        - MCP server (serve)
+        - Both
+        - Not sure
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: mantis-mem version
+      description: Output of `mantis-mem version`.
+      placeholder: mantis-mem 0.1.0
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: OS / architecture
+      placeholder: macOS 15 arm64 · Ubuntu 24.04 amd64 · Windows 11 amd64
+    validations:
+      required: true

@@ -1,0 +1,93 @@
+# Canonical mantis-mem label vocabulary (see CONTRIBUTING.md → Label System).
+# This is the source of truth. Apply it to the repo with: ./scripts/sync-labels.sh
+# Format is one flat list of {name, color, description} — kept simple so the sync
+# script can parse it without extra tooling.
+
+# --- type:* (required on every issue and PR — exactly one) ---
+- name: "type:bug"
+  color: "d73a4a"
+  description: "Bug fixes"
+- name: "type:feature"
+  color: "0075ca"
+  description: "New features"
+- name: "type:question"
+  color: "d876e3"
+  description: "Questions requiring tracked work"
+- name: "type:docs"
+  color: "0075ca"
+  description: "Documentation-only changes"
+- name: "type:refactor"
+  color: "8250df"
+  description: "Refactoring with no behavior change"
+- name: "type:chore"
+  color: "ededed"
+  description: "Maintenance, tooling, dependencies"
+- name: "type:breaking-change"
+  color: "b60205"
+  description: "Breaking change (requires major version bump)"
+
+# --- status:* (lifecycle — set by maintainers) ---
+- name: "status:needs-review"
+  color: "fbca04"
+  description: "Awaiting maintainer review (auto-applied to new issues)"
+- name: "status:approved"
+  color: "0e8a16"
+  description: "Approved for implementation — PRs can now be opened"
+- name: "status:in-progress"
+  color: "1d76db"
+  description: "Actively being worked on — exempt from stale bot"
+- name: "status:blocked"
+  color: "b60205"
+  description: "Blocked by another issue or external dependency"
+- name: "status:stale"
+  color: "c5def5"
+  description: "No activity for 30 days — auto-applied by stale bot"
+- name: "status:wontfix"
+  color: "ffffff"
+  description: "Closed without implementation"
+- name: "status:possible-duplicate"
+  color: "d4c5f9"
+  description: "Potential duplicate under evaluation"
+
+# --- resolution:* (set after closure) ---
+- name: "resolution:duplicate"
+  color: "cfd3d7"
+  description: "Confirmed duplicate after closure"
+
+# --- priority:* (set by maintainers) ---
+- name: "priority:critical"
+  color: "b60205"
+  description: "Critical priority"
+- name: "priority:high"
+  color: "d93f0b"
+  description: "High priority"
+- name: "priority:medium"
+  color: "fbca04"
+  description: "Medium priority"
+- name: "priority:low"
+  color: "0e8a16"
+  description: "Low priority"
+
+# --- effort:* (contributor guidance) ---
+- name: "effort:small"
+  color: "c2e0c6"
+  description: "Under 1 hour — good starting point for new contributors"
+- name: "effort:medium"
+  color: "fef2c0"
+  description: "1 to 4 hours"
+- name: "effort:large"
+  color: "f9d0c4"
+  description: "Over 4 hours or spans multiple files"
+
+# --- size:* (PR only) ---
+- name: "size:exception"
+  color: "5319e7"
+  description: "Maintainer-approved oversized PR (exceeds the review budget)"
+
+# --- protected unnamespaced exceptions ---
+- name: "good first issue"
+  color: "7057ff"
+  description: "Good for newcomers"
+- name: "help wanted"
+  color: "008672"
+  description: "Extra attention is welcome"

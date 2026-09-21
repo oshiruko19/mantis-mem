@@ -1,0 +1,41 @@
+name: Stale
+
+# Weekly backlog sweep (CONTRIBUTING.md → Maintainer Triage Cadence). Marks
+# inactive issues/PRs status:stale after 30 days and closes them 14 days later.
+# Exempt (never marked stale, hence never auto-closed): status:in-progress,
+# status:approved, status:blocked, priority:critical, priority:high.
+on:
+  schedule:
+    - cron: "0 8 * * 1" # Mondays 08:00 UTC
+  workflow_dispatch: {}
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  stale:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/stale@v9
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          days-before-stale: 30
+          days-before-close: 14
+          stale-issue-label: "status:stale"
+          stale-pr-label: "status:stale"
+          exempt-issue-labels: "status:in-progress,status:approved,status:blocked,priority:critical,priority:high"
+          exempt-pr-labels: "status:in-progress,status:blocked,size:exception"
+          exempt-all-milestones: true
+          ascending: true # process the oldest items first
+          stale-issue-message: >
+            This issue has had no activity for 30 days and is now `status:stale`.
+            It will be closed in 14 days unless there's an update. Maintainers:
+            add `status:approved`, `status:in-progress`, or a priority label to keep it open.
+          stale-pr-message: >
+            This PR has had no activity for 30 days and is now `status:stale`.
+            It will be closed in 14 days unless updated. Push a change or comment to keep it open.
+          close-issue-message: >
+            Closing after 30 + 14 days of inactivity. Comment to reopen if this is still relevant.
+          close-pr-message: >
+            Closing after 30 + 14 days of inactivity. Reopen when you're ready to continue.

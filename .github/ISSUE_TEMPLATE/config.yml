@@ -1,0 +1,8 @@
+# Blank issues are disabled: every issue must use a template so it gets a
+# type:* and status:needs-review label automatically. General support goes to
+# Discussions, not the issue tracker.
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 Questions & Support (Discussions)
+    url: https://github.com/oshiruko19/mantis-mem/discussions
+    about: General "how do I…" questions and support belong in Discussions. Open a Tracked Question issue only when the answer needs investigation, a repo change, or a durable decision.

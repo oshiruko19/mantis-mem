@@ -1,0 +1,42 @@
+name: ❓ Tracked Question
+description: A question needing maintainer investigation, a repo change, or a durable decision
+labels: ["type:question", "status:needs-review"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ⚠️ General "how do I…" questions belong in [Discussions](https://github.com/oshiruko19/mantis-mem/discussions).
+        Use this template **only** when answering requires investigation, a code/doc change, or a decision worth recording.
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Pre-flight
+      options:
+        - label: This is not a general support question (those go to Discussions).
+          required: true
+        - label: I searched existing issues and Discussions.
+          required: true
+
+  - type: textarea
+    id: question
+    attributes:
+      label: The question
+    validations:
+      required: true
+
+  - type: textarea
+    id: why-tracked
+    attributes:
+      label: Why does this need tracked work?
+      description: What investigation, change, or decision does answering it require?
+    validations:
+      required: true
+
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Expected outcome
+      description: What would "done" look like — a doc update, a code change, a recorded decision?
+    validations:
+      required: false

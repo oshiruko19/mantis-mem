@@ -1,0 +1,81 @@
+name: PR Policy
+
+# Issue-first gating. Each job below becomes a separately-named status check so it
+# can be marked "required" in branch protection (see scripts/setup-branch-protection.sh).
+# Implemented in shell + gh + jq (preinstalled on runners) — no Node, matching the
+# project's dependency-light ethos. Uses the read-only default token.
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize, labeled, unlabeled]
+
+permissions:
+  contents: read
+  issues: read
+  pull-requests: read
+
+concurrency:
+  group: pr-policy-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  GH_REPO: ${{ github.repository }}
+  PR: ${{ github.event.pull_request.number }}
+
+jobs:
+  issue-reference:
+    name: Check Issue Reference
+    runs-on: ubuntu-latest
+    steps:
+      - name: PR body must close an issue
+        run: |
+          set -euo pipefail
+          body="$(gh pr view "$PR" --json body -q .body || true)"
+          num="$(printf '%s' "$body" \
+            | grep -ioE '(close[sd]?|fix(es|ed)?|resolve[sd]?)[[:space:]]+#[0-9]+' \
+            | grep -oE '[0-9]+' | head -1 || true)"
+          if [ -z "$num" ]; then
+            echo "::error::PR body must reference an issue, e.g. 'Closes #123' (also Fixes/Resolves)."
+            exit 1
+          fi
+          echo "Referenced issue: #$num"
+
+  issue-approved:
+    name: Check Issue Has status:approved
+    runs-on: ubuntu-latest
+    steps:
+      - name: Linked issue must be approved
+        run: |
+          set -euo pipefail
+          body="$(gh pr view "$PR" --json body -q .body || true)"
+          num="$(printf '%s' "$body" \
+            | grep -ioE '(close[sd]?|fix(es|ed)?|resolve[sd]?)[[:space:]]+#[0-9]+' \
+            | grep -oE '[0-9]+' | head -1 || true)"
+          if [ -z "$num" ]; then
+            echo "::error::No linked issue found; add 'Closes #N' referencing an approved issue."
+            exit 1
+          fi
+          approved="$(gh issue view "$num" --json labels \
+            -q '[.labels[].name | select(. == "status:approved")] | length')"
+          if [ "$approved" -ne 1 ]; then
+            echo "::error::Linked issue #$num is not approved (needs the status:approved label)."
+            exit 1
+          fi
+          echo "Issue #$num is approved."
+
+  type-label:
+    name: "Check PR Has type:* Label"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Exactly one canonical type:* label
+        run: |
+          set -euo pipefail
+          count="$(gh pr view "$PR" --json labels \
+            -q '[.labels[].name | select(startswith("type:"))] | length')"
+          if [ "$count" -ne 1 ]; then
+            echo "::error::PR must have exactly one type:* label (found $count). See CONTRIBUTING.md → Label System."
+            exit 1
+          fi
+          label="$(gh pr view "$PR" --json labels -q '.labels[].name | select(startswith("type:"))')"
+          echo "type label: $label"

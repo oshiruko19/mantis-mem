@@ -1,0 +1,29 @@
+# golangci-lint v2 configuration. Pinned tool version: v2.13.2 (see Makefile).
+# CONTRIBUTING.md → "Lint Ratchet": errcheck, staticcheck, unused.
+version: "2"
+
+# Also analyze the e2e-tagged tests so they can't rot silently.
+run:
+  build-tags:
+    - e2e
+
+linters:
+  default: none
+  enable:
+    - errcheck
+    - staticcheck
+    - unused
+
+  settings:
+    errcheck:
+      # Well-known no-op error returns: user-facing writes and cleanup Close()s.
+      exclude-functions:
+        - fmt.Fprint
+        - fmt.Fprintf
+        - fmt.Fprintln
+        - (*database/sql.DB).Close
+        - (*database/sql.Rows).Close
+        - (*github.com/oshiruko19/mantis-mem/internal/store.Store).Close
+
+  exclusions:
+    generated: lax

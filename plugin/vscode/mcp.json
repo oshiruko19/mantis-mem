@@ -1,0 +1,10 @@
+{
+  "servers": {
+    "mantis-mem": {
+      "type": "stdio",
+      "command": "mantis-mem",
+      "args": ["serve"],
+      "cwd": "${workspaceFolder}"
+    }
+  }
+}

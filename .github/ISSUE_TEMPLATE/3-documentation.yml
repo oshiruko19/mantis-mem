@@ -1,0 +1,32 @@
+name: 📝 Documentation Improvement
+description: Report missing, outdated, or unclear documentation
+labels: ["type:docs", "status:needs-review"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Docs live in `README.md`, `CONTRIBUTING.md`, `AGENTS.md`, and MCP tool descriptions. Point us at the exact spot.
+
+  - type: input
+    id: location
+    attributes:
+      label: Which doc or section?
+      description: File and heading, or a link.
+      placeholder: CONTRIBUTING.md → "Transient Artifact Policy"
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What's wrong, missing, or unclear?
+    validations:
+      required: true
+
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Suggested improvement
+      description: Proposed wording or the correct information, if you have it.
+    validations:
+      required: false

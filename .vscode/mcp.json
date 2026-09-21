@@ -1,0 +1,12 @@
+{
+  "servers": {
+    "mantis-mem": {
+      "type": "stdio",
+      "command": "/Users/aatrari/go/bin/mantis-mem",
+      "args": [
+        "serve"
+      ],
+      "cwd": "${workspaceFolder}"
+    }
+  }
+}

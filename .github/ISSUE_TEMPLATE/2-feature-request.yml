@@ -1,0 +1,62 @@
+name: ✨ Feature Request
+description: Propose a new feature or an improvement to an existing one
+labels: ["type:feature", "status:needs-review"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Describe the problem first, then the proposed solution. Approval (`status:approved`) is required before a PR is opened.
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Pre-flight
+      options:
+        - label: I searched existing issues and this is not a duplicate.
+          required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / motivation
+      description: What can't you do today, or what's painful? Describe the use case, not just the solution.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: What should mantis-mem do? Sketch the CLI flags / MCP tool shape / behavior if you can.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+    validations:
+      required: false
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Which part of the project does this touch?
+      multiple: true
+      options:
+        - CLI
+        - MCP server / tools
+        - Store / SQLite / FTS5
+        - Project resolution
+        - Build / release / cross-compile
+        - Docs
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+    validations:
+      required: false

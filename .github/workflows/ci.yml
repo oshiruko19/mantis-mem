@@ -1,0 +1,96 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Pure Go, no cgo — this is the project's core build guarantee.
+env:
+  CGO_ENABLED: "0"
+
+jobs:
+  test:
+    name: fmt · vet · test · build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: gofmt (must be clean)
+        run: |
+          files="$(gofmt -l .)"
+          if [ -n "$files" ]; then
+            echo "These files are not gofmt-clean:"; echo "$files"
+            exit 1
+          fi
+
+      - name: go vet
+        run: go vet ./...
+
+      # No -race: the race detector needs cgo, and this project builds/tests cgo-free.
+      - name: go test
+        run: go test ./...
+
+      - name: go build
+        run: go build ./...
+
+  e2e:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: e2e tests
+        run: go test -tags e2e ./internal/mcpserver/...
+
+  lint:
+    name: lint (golangci-lint)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      # Install the pinned version and run via `make lint` (same as local dev).
+      - name: install golangci-lint (pinned)
+        run: |
+          go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.13.2
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
+      - name: make lint
+        run: make lint
+
+  cross-compile:
+    name: cross-compile matrix
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      # Proves the single-machine, no-toolchain cross-compile promise still holds.
+      - name: make release
+        run: make release VERSION="ci-${GITHUB_SHA::7}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mantis-mem-binaries
+          path: dist/
+          if-no-files-found: error
+          retention-days: 7
