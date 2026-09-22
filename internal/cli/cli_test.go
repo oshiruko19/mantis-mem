@@ -65,6 +65,44 @@ func TestSaveThenSearch(t *testing.T) {
 	}
 }
 
+func TestAppendToObservation(t *testing.T) {
+	newEnv(t)
+	if _, err := run(t, "save", "--kind", "feature", "--title", "Streaming notes", "--body", "What: initial plan"); err != nil {
+		t.Fatalf("save: %v", err)
+	}
+	out, err := run(t, "append", "--id", "1", "--note", "Progress: added the append path", "--session", "s1")
+	if err != nil {
+		t.Fatalf("append: %v", err)
+	}
+	if !strings.Contains(out, "appended to observation #1") {
+		t.Fatalf("append output: %q", out)
+	}
+	out, err = run(t, "get", "1")
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	if !strings.Contains(out, "What: initial plan") || !strings.Contains(out, "Progress: added the append path") {
+		t.Fatalf("append should preserve prior body and add the note: %q", out)
+	}
+}
+
+func TestAppendMissingObservation(t *testing.T) {
+	newEnv(t)
+	if _, err := run(t, "append", "--id", "42", "--note", "x"); err == nil {
+		t.Fatal("expected an error appending to a missing observation")
+	}
+}
+
+func TestAppendRequiresIDAndNote(t *testing.T) {
+	newEnv(t)
+	if _, err := run(t, "append", "--note", "x"); err == nil {
+		t.Fatal("expected an error when --id is missing")
+	}
+	if _, err := run(t, "append", "--id", "1", "--note", ""); err == nil {
+		t.Fatal("expected an error when --note is empty")
+	}
+}
+
 func TestSaveDuplicateNudge(t *testing.T) {
 	newEnv(t)
 	_, err := run(t, "save", "--kind", "pattern", "--title", "WebSocket reconnection protocol", "--body", "exponential backoff", "--topic", "net/ws-reconnect")

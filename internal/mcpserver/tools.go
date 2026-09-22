@@ -276,8 +276,40 @@ func (h *Handler) MemSave(_ context.Context, _ *mcp.CallToolRequest, in saveInpu
 	return nil, out, nil
 }
 
-// --- mem_session_summary -------------------------------------------------------
+// --- mem_append ----------------------------------------------------------------
 
+type appendInput struct {
+	ID        int64  `json:"id" jsonschema:"the observation id to append to"`
+	Note      string `json:"note" jsonschema:"the note to append; a timestamped entry is added without overwriting prior content"`
+	SessionID string `json:"session_id,omitempty" jsonschema:"the current session identifier, recorded in the appended entry header"`
+	CommitSHA string `json:"commit_sha,omitempty" jsonschema:"git commit SHA for this entry; auto-detected if omitted"`
+}
+
+type appendOutput struct {
+	Observation *store.Observation `json:"observation"`
+	Found       bool               `json:"found"`
+}
+
+func (h *Handler) MemAppend(_ context.Context, _ *mcp.CallToolRequest, in appendInput) (*mcp.CallToolResult, appendOutput, error) {
+	if strings.TrimSpace(in.Note) == "" {
+		return nil, appendOutput{}, fmt.Errorf("note is required")
+	}
+	p, _, err := h.currentProject()
+	if err != nil {
+		return nil, appendOutput{}, err
+	}
+	commitSHA := strings.TrimSpace(in.CommitSHA)
+	if commitSHA == "" {
+		commitSHA = project.CurrentCommit(p.Path)
+	}
+	saved, err := h.Store.AppendObservation(in.ID, in.Note, in.SessionID, commitSHA)
+	if err != nil {
+		return nil, appendOutput{}, err
+	}
+	return nil, appendOutput{Observation: saved, Found: saved != nil}, nil
+}
+
+// --- mem_session_summary -------------------------------------------------------
 type sessionSummaryInput struct {
 	SessionID    string   `json:"session_id" jsonschema:"the current session identifier"`
 	Goal         string   `json:"goal,omitempty" jsonschema:"what this session set out to do"`

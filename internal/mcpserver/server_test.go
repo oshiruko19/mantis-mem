@@ -82,7 +82,7 @@ func TestListToolsExposesAllMemTools(t *testing.T) {
 	}
 	want := []string{
 		"mem_current_project", "mem_context", "mem_search", "mem_timeline",
-		"mem_get_observation", "mem_save", "mem_session_summary", "mem_session_history", "mem_suggest_topic_key",
+		"mem_get_observation", "mem_save", "mem_append", "mem_session_summary", "mem_session_history", "mem_suggest_topic_key",
 	}
 	for _, name := range want {
 		if !got[name] {

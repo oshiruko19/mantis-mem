@@ -45,6 +45,11 @@ func New(st *store.Store, version string) *mcp.Server {
 	}, h.MemSave)
 
 	mcp.AddTool(s, &mcp.Tool{
+		Name:        "mem_append",
+		Description: "Append a timestamped note to an existing observation by id without overwriting it. Use mid-task to record incremental progress on an evolving record while preserving its history.",
+	}, h.MemAppend)
+
+	mcp.AddTool(s, &mcp.Tool{
 		Name:        "mem_session_summary",
 		Description: "Save or update a session handoff: goal, instructions, discoveries, accomplished work, next steps, and relevant files.",
 	}, h.MemSessionSummary)

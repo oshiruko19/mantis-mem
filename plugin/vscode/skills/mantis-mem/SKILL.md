@@ -26,11 +26,15 @@ MCP tools (`mem_*`). Treat it as project knowledge, **not** a transcript sink.
 4. **Save deliberately.** Save completed bug fixes, decisions, discoveries,
    configuration changes, patterns, and durable user constraints with `mem_save`.
    Do not capture raw tool output or every conversational turn.
-5. **Keep evolving knowledge stable.** Give an evolving topic a stable `topic_key`
+5. **Capture progress mid-task.** For longer work, `mem_save` the record once, then
+   use `mem_append` to add timestamped progress notes to it as you go, instead of
+   waiting until the end or overwriting the record. Appends preserve prior content
+   and stay searchable.
+6. **Keep evolving knowledge stable.** Give an evolving topic a stable `topic_key`
    such as `architecture/auth-model` and reuse it to update that topic instead of
    creating competing memories. `mem_save` returns near-duplicate detection nudges
    if similar entries exist. Use `mem_suggest_topic_key` when unsure.
-6. **Leave and review handoffs.** Before ending a session, save a `mem_session_summary` with
+7. **Leave and review handoffs.** Before ending a session, save a `mem_session_summary` with
    the goal, instructions, discoveries, accomplished work, next steps, and files. Call
    `mem_session_history` when onboarding to see past session summaries.
 
@@ -43,6 +47,9 @@ MCP tools (`mem_*`). Treat it as project knowledge, **not** a transcript sink.
   _Example:_ `mem_save(kind="bug", title="Retry-safe upload", topic_key="bug/upload-dupes",
 body="What: reuse request id as idempotency key. Why: retries duplicated rows.
 Where: internal/upload/handler.go")`.
+- **If** you're mid-task on something already saved → **then** `mem_append` a progress
+  note to it instead of re-saving or overwriting.
+  _Example:_ `mem_append(id=42, note="Progress: wired the store method; tests green.")`.
 - **If** a topic already exists (search or `mem_save` duplicate nudge found it) → **then**
   reuse its `topic_key` in `mem_save` to update it in place instead of creating a duplicate.
 - **If** you're wrapping up → **then** `mem_session_summary(...)` with next steps.

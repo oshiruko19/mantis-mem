@@ -25,6 +25,8 @@ func Run(args []string, version string, out io.Writer) error {
 		return cmdSearch(rest, out)
 	case "save":
 		return cmdSave(rest, out)
+	case "append":
+		return cmdAppend(rest, out)
 	case "context":
 		return cmdContext(rest, out)
 	case "timeline":
@@ -59,6 +61,7 @@ Usage:
   mantis-mem init                  create/open the database
   mantis-mem project               show the resolved current project
   mantis-mem save   --kind K --title T --body B [--topic K] [--tags "a b"] [--files "p1,p2"] [--commit SHA]
+  mantis-mem append --id N --note B [--session S] [--commit SHA]
   mantis-mem search QUERY          full-text search the current project
   mantis-mem context [--limit N]   recent history for the current project
   mantis-mem timeline [--session S] [--since RFC3339] [--limit N]
@@ -406,6 +409,50 @@ func cmdGet(args []string, out io.Writer) error {
 		fmt.Fprintf(out, "tags: %s\n", o.Tags)
 	}
 	fmt.Fprintf(out, "\n%s\n", o.Body)
+	return nil
+}
+
+func cmdAppend(args []string, out io.Writer) error {
+	fs := flag.NewFlagSet("append", flag.ContinueOnError)
+	db := fs.String("db", "", "database file path")
+	id := fs.Int64("id", 0, "observation id to append to")
+	note := fs.String("note", "", "note to append (a timestamped entry is added)")
+	session := fs.String("session", "", "session id")
+	commit := fs.String("commit", "", "git commit SHA (auto-detected if omitted)")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if *id <= 0 {
+		return fmt.Errorf("--id is required")
+	}
+	if strings.TrimSpace(*note) == "" {
+		return fmt.Errorf("--note is required")
+	}
+	st, err := openStore(*db)
+	if err != nil {
+		return err
+	}
+	defer st.Close()
+	p, err := resolveProject(st)
+	if err != nil {
+		return err
+	}
+	commitSHA := strings.TrimSpace(*commit)
+	if commitSHA == "" {
+		commitSHA = project.CurrentCommit(p.Path)
+	}
+	saved, err := st.AppendObservation(*id, *note, *session, commitSHA)
+	if err != nil {
+		return err
+	}
+	if saved == nil {
+		return fmt.Errorf("observation #%d not found", *id)
+	}
+	fmt.Fprintf(out, "appended to observation #%d", saved.ID)
+	if saved.TopicKey != "" {
+		fmt.Fprintf(out, " [%s]", saved.TopicKey)
+	}
+	fmt.Fprintln(out)
 	return nil
 }
 

@@ -62,6 +62,7 @@ Memory is scoped per project, resolved from the working directory:
 | `mem_timeline`          | Observations in chronological order, optionally scoped to a session/time.                                     |
 | `mem_get_observation`   | Fetch the full record for one observation by id (reports commit SHA and staleness).                           |
 | `mem_save`              | Save durable knowledge (with auto commit capture and duplicate nudges); reuse `topic_key` to update in place. |
+| `mem_append`            | Append a timestamped progress note to an existing observation mid-task without overwriting it.                 |
 | `mem_session_summary`   | Save/update a session handoff (goal, instructions, discoveries, next steps, files).                           |
 | `mem_session_history`   | List past session summaries / handoffs in reverse chronological order.                                        |
 | `mem_suggest_topic_key` | Suggest a stable `namespace/kebab-title` slug.                                                                |
@@ -82,6 +83,7 @@ Learned: Reuse the request id as the idempotency key.
 ```bash
 mantis-mem project                       # show resolved project
 mantis-mem save --kind bug --title "..." --body "..." [--topic bug/x] [--tags "a b"] [--files "p1,p2"] [--commit SHA]
+mantis-mem append --id 42 --note "Progress: ..." [--session S] [--commit SHA]
 mantis-mem search "retry idempotency"    # full-text search
 mantis-mem context [--limit N]           # recent history
 mantis-mem timeline [--session S] [--since 2026-09-01T00:00:00Z]

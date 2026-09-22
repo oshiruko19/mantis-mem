@@ -2,6 +2,7 @@ package store
 
 import (
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -115,6 +116,81 @@ func TestTopicKeyUpdatesInPlace(t *testing.T) {
 	}
 	if recent[0].Title != "auth v2" || recent[0].Body != "jwt sessions" {
 		t.Fatalf("row not updated in place: %+v", recent[0])
+	}
+}
+
+func TestAppendObservationPreservesHistory(t *testing.T) {
+	st := newTestStore(t)
+	p := mustProject(t, st)
+	saved, _, err := st.SaveObservation(&Observation{
+		ProjectID: p.ID, Kind: "feature", Title: "mid-conversation notes",
+		Body: "What: initial plan.",
+	})
+	if err != nil {
+		t.Fatalf("SaveObservation: %v", err)
+	}
+
+	got, err := st.AppendObservation(saved.ID, "Progress: wired the store method.", "sess-1", "abcdef1234567890")
+	if err != nil {
+		t.Fatalf("AppendObservation: %v", err)
+	}
+	if got == nil {
+		t.Fatalf("expected the updated observation, got nil")
+	}
+	if !strings.Contains(got.Body, "What: initial plan.") {
+		t.Fatalf("append must preserve prior body: %q", got.Body)
+	}
+	if !strings.Contains(got.Body, "Progress: wired the store method.") {
+		t.Fatalf("append must include the new note: %q", got.Body)
+	}
+	if !strings.Contains(got.Body, "[session sess-1]") || !strings.Contains(got.Body, "[commit abcdef12]") {
+		t.Fatalf("append header should carry session and short commit: %q", got.Body)
+	}
+	if got.CommitSHA != "abcdef1234567890" {
+		t.Fatalf("expected commit backfilled, got %q", got.CommitSHA)
+	}
+
+	res, err := st.SearchObservations(p.ID, "wired store method", 10)
+	if err != nil {
+		t.Fatalf("SearchObservations: %v", err)
+	}
+	if len(res) == 0 || res[0].ID != saved.ID {
+		t.Fatalf("appended note should be searchable: %+v", res)
+	}
+}
+
+func TestAppendObservationMissingReturnsNil(t *testing.T) {
+	st := newTestStore(t)
+	got, err := st.AppendObservation(999, "note", "", "")
+	if err != nil {
+		t.Fatalf("AppendObservation error: %v", err)
+	}
+	if got != nil {
+		t.Fatalf("expected nil for missing id, got %+v", got)
+	}
+}
+
+func TestAppendObservationEmptyNoteErrors(t *testing.T) {
+	st := newTestStore(t)
+	p := mustProject(t, st)
+	saved, _, _ := st.SaveObservation(&Observation{ProjectID: p.ID, Kind: "note", Title: "t", Body: "b"})
+	if _, err := st.AppendObservation(saved.ID, "   ", "", ""); err == nil {
+		t.Fatal("expected an error for an empty note")
+	}
+}
+
+func TestAppendObservationDoesNotOverwriteExistingCommit(t *testing.T) {
+	st := newTestStore(t)
+	p := mustProject(t, st)
+	saved, _, _ := st.SaveObservation(&Observation{
+		ProjectID: p.ID, Kind: "note", Title: "t", Body: "b", CommitSHA: "0000000011111111",
+	})
+	got, err := st.AppendObservation(saved.ID, "more", "", "9999999988888888")
+	if err != nil {
+		t.Fatalf("AppendObservation: %v", err)
+	}
+	if got.CommitSHA != "0000000011111111" {
+		t.Fatalf("existing commit must be preserved, got %q", got.CommitSHA)
 	}
 }
 

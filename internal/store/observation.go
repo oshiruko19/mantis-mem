@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 	"unicode"
 )
 
@@ -66,6 +67,84 @@ RETURNING id, project_id, session_id, commit_sha, COALESCE(topic_key,''), kind, 
 		return nil, false, fmt.Errorf("commit: %w", err)
 	}
 	return saved, exists, nil
+}
+
+// AppendObservation appends a timestamped note to an existing observation's body
+// without overwriting it, preserving the running history of an evolving record.
+// This is intended for capturing incremental progress mid-conversation. The note
+// is separated from prior content by a header line carrying the timestamp and,
+// when provided, the session id and short commit SHA. When the observation has no
+// commit recorded yet and commitSHA is non-empty, it is backfilled. Returns the
+// updated observation, or nil if no observation exists with the given id.
+func (s *Store) AppendObservation(id int64, note, sessionID, commitSHA string) (*Observation, error) {
+	if strings.TrimSpace(note) == "" {
+		return nil, fmt.Errorf("note is required")
+	}
+
+	tx, err := s.db.Begin()
+	if err != nil {
+		return nil, fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback() //nolint:errcheck // no-op after Commit
+
+	var (
+		body        string
+		existingSHA string
+	)
+	err = tx.QueryRow(
+		`SELECT body, commit_sha FROM observations WHERE id = ?;`, id,
+	).Scan(&body, &existingSHA)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("load observation: %w", err)
+	}
+
+	newBody := appendNote(body, note, sessionID, commitSHA)
+	sha := existingSHA
+	if strings.TrimSpace(sha) == "" {
+		sha = strings.TrimSpace(commitSHA)
+	}
+
+	const q = `
+UPDATE observations
+SET body = ?,
+    commit_sha = ?,
+    updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
+WHERE id = ?
+RETURNING id, project_id, session_id, commit_sha, COALESCE(topic_key,''), kind, title, body, files, tags, created_at, updated_at;`
+	saved, err := scanObservation(tx.QueryRow(q, newBody, sha, id))
+	if err != nil {
+		return nil, err
+	}
+	if err = tx.Commit(); err != nil {
+		return nil, fmt.Errorf("commit: %w", err)
+	}
+	return saved, nil
+}
+
+// appendNote joins prior body text with a new timestamped entry. Kept separate
+// for straightforward testing of the formatting.
+func appendNote(body, note, sessionID, commitSHA string) string {
+	header := "--- appended " + time.Now().UTC().Format("2006-01-02T15:04:05.000Z")
+	if s := strings.TrimSpace(sessionID); s != "" {
+		header += " [session " + s + "]"
+	}
+	if sha := strings.TrimSpace(commitSHA); sha != "" {
+		if len(sha) > 8 {
+			sha = sha[:8]
+		}
+		header += " [commit " + sha + "]"
+	}
+	header += " ---"
+
+	note = strings.TrimRight(note, "\n")
+	prior := strings.TrimRight(body, "\n")
+	if prior == "" {
+		return header + "\n" + note
+	}
+	return prior + "\n\n" + header + "\n" + note
 }
 
 // GetObservation returns the full observation by id, or nil if not found.

@@ -77,13 +77,13 @@ func TestE2E_ServeOverStdio(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = cs.Close() })
 
-	// tools/list — the real binary must advertise all 9 mem_* tools.
+	// tools/list — the real binary must advertise all 10 mem_* tools.
 	lt, err := cs.ListTools(ctx, nil)
 	if err != nil {
 		t.Fatalf("ListTools: %v", err)
 	}
-	if len(lt.Tools) != 9 {
-		t.Fatalf("expected 9 tools over stdio, got %d", len(lt.Tools))
+	if len(lt.Tools) != 10 {
+		t.Fatalf("expected 10 tools over stdio, got %d", len(lt.Tools))
 	}
 
 	// mem_save → mem_search → confirm the round-trip through a real process + disk DB.
